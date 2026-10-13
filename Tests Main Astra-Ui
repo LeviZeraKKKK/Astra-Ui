@@ -834,9 +834,9 @@ local function CreateTab(name, symbol)
     return TabContent
 end
 
-local Tab1 = CreateTab("Carro", "🚗")
-local Tab2 = CreateTab("Ajustes", "⚙️")
-local Tab3 = CreateTab("Stats", "📊")
+local Tab1 = CreateTab("Carro", "Car")
+local Tab2 = CreateTab("Ajustes", "Set")
+local Tab3 = CreateTab("Stats", "Stat")
 
 local function CreateSection(parent, titleText)
     local SectionWrapper = Instance.new("Frame")
@@ -912,7 +912,8 @@ local function CreateButton(parent, text, callback)
     end)
 end
 
--- Sub-slider reduzido para opções aninhadas (completamente integrado ao layout)
+-- Sub-slider com marcador padrão (1.00x)
+local subSliderList = {}
 local function CreateSubSlider(parent, text, min, max, default, callback)
     local SliderVal = default or min
     local SliderFrame = Instance.new("Frame")
@@ -927,7 +928,7 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
     Label.Position = UDim2.new(0, 8, 0, 2)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.GothamMedium
-    Label.Text = "↳ " .. text .. ": " .. string.format("%.2fx", SliderVal)
+    Label.Text = "> " .. text .. ": " .. string.format("%.2fx", SliderVal)
     Label.TextColor3 = Color3.fromRGB(180, 180, 205)
     Label.TextSize = 10
     Label.TextXAlignment = Enum.TextXAlignment.Left
@@ -940,6 +941,16 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
     SliderBar.BorderSizePixel = 0
     SliderBar.Parent = SliderFrame
     Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(1, 0)
+
+    -- Linha branca indicativa do valor 1.00x padrão
+    local defaultMarker = Instance.new("Frame")
+    local defaultPos = math.clamp((1 - min) / (max - min), 0, 1)
+    defaultMarker.Size = UDim2.new(0, 2, 0, 9)
+    defaultMarker.Position = UDim2.new(defaultPos, -1, 0, -2)
+    defaultMarker.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    defaultMarker.BackgroundTransparency = 0.2
+    defaultMarker.BorderSizePixel = 0
+    defaultMarker.Parent = SliderBar
 
     local pct = (SliderVal - min) / (max - min)
     local SliderFill = Instance.new("Frame")
@@ -963,7 +974,7 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
         if newVal ~= SliderVal then
             SliderVal = newVal
             SliderFill.Size = UDim2.new(p, 0, 1, 0)
-            Label.Text = "↳ " .. text .. ": " .. string.format("%.2fx", SliderVal)
+            Label.Text = "> " .. text .. ": " .. string.format("%.2fx", SliderVal)
 
             if newVal ~= lastCallbackVal then
                 lastCallbackVal = newVal
@@ -996,10 +1007,28 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
         end
     end)
 
+    local objData = {
+        frame = SliderFrame,
+        fill = SliderFill,
+        label = Label,
+        textBase = text,
+        min = min,
+        max = max,
+        setValue = function(v)
+            SliderVal = v
+            lastCallbackVal = v
+            local p = math.clamp((v - min) / (max - min), 0, 1)
+            SliderFill.Size = UDim2.new(p, 0, 1, 0)
+            Label.Text = "> " .. text .. ": " .. string.format("%.2fx", v)
+            if callback then callback(v) end
+        end
+    }
+    table.insert(subSliderList, objData)
+
     return SliderFrame
 end
 
--- Toggle com múltiplos sub-sliders dinâmicos embutidos abaixo
+-- Toggle com múltiplos sub-sliders dinâmicos
 local function CreateToggleWithMultiSubSliders(parent, text, subSlidersConfig, callback)
     local Toggled = false
 
@@ -1083,7 +1112,7 @@ local function CreateToggleWithMultiSubSliders(parent, text, subSlidersConfig, c
     end)
 end
 
--- Toggle Simples (Padrão)
+-- Toggle Simples
 local function CreateToggle(parent, text, callback)
     local Toggled = false
     local ToggleBtn = Instance.new("TextButton")
@@ -1147,7 +1176,6 @@ CreateToggleWithMultiSubSliders(Sec1, "Modificar Velocidade Máxima", {
     end
 end)
 
--- Nova Seção de Pulos com as 4 opções dinâmicas solicitadas
 CreateToggleWithMultiSubSliders(Sec1, "Modificar Força de Pulo", {
     {label = "Pulo do Chão", min = 0.5, max = 10, default = 1, callback = function(val) MULT_GROUND = val applyConstMult() end},
     {label = "Double Jump", min = 0.5, max = 10, default = 1, callback = function(val) MULT_DBL = val end},
@@ -1163,6 +1191,15 @@ end)
 CreateToggle(Sec1, "Pulos Infinitos", function(state)
     infiniteJumpsOn = state
     if state and carCount == 0 then task.defer(rescanCars) end
+end)
+
+-- Botão de Reset dos Pulos
+CreateButton(Sec1, "Resetar Valores de Pulos (1.00x)", function()
+    for _, sData in ipairs(subSliderList) do
+        sData.setValue(1)
+    end
+    MULT_GROUND, MULT_DBL, MULT_FLIP, MULT_DODGE = 1, 1, 1, 1
+    applyConstMult()
 end)
 
 local Sec3 = CreateSection(Tab2, "Otimização")
@@ -1239,4 +1276,4 @@ CreateSlider(Sec3, "Sensibilidade do Controlo", 1, 10, 5, function(val) print("V
 local Sec4 = CreateSection(Tab3, "Informações")
 CreateButton(Sec4, "Verificar Status do Script", function() print("Tudo OK e otimizado!") end)
 
-print("Astra UI - Turbo Soccer Pro Ultimate com Sistema Completo de Pulos Integrado!")
+print("Astra UI - Turbo Soccer Pro Ultimate com Pulos Ajustados Carregado com Sucesso!")
