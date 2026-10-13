@@ -1,1 +1,1242 @@
-.
+--[[\
+    Astra UI Library - Turbo Soccer Pro Ultimate (Jump Customizer & Zero-Lag)
+    Linguagem: Luau (Roblox)
+]]--
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- Evitar duplicados
+if PlayerGui:FindFirstChild("AstraLibrary") then
+    PlayerGui.AstraLibrary:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AstraLibrary"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 999999
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE BOOST INFINITO (ZERO LAG)
+--------------------------------------------------------------------------------
+local boostInfiniteEnabled = false
+local VALOR_BOOST = 100
+local RESCAN_COOLDOWN = 10
+local cacheBoost, cacheBoostCount = {}, 0
+local lastRescanBoost = 0
+
+local function compactAndApplyBoost()
+    local v = VALOR_BOOST
+    local n = 0
+    for i = 1, cacheBoostCount do
+        local obj = cacheBoost[i]
+        if type(obj) == "table" and rawget(obj, "boost") then
+            if boostInfiniteEnabled then
+                obj.boost = v
+            end
+            n = n + 1
+            cacheBoost[n] = obj
+        end
+    end
+    for i = n + 1, cacheBoostCount do cacheBoost[i] = nil end
+    cacheBoostCount = n
+end
+
+local function rescanBoost()
+    local v = VALOR_BOOST
+    local n = 0
+    for _, obj in pairs(getgc(true)) do
+        if type(obj) == "table" and rawget(obj, "boost") and rawget(obj, "boostUsedPerSecond") then
+            if boostInfiniteEnabled then
+                obj.boost = v
+            end
+            n = n + 1
+            cacheBoost[n] = obj
+        end
+    end
+    cacheBoostCount = n
+    lastRescanBoost = tick()
+end
+
+RunService.Heartbeat:Connect(function()
+    if not boostInfiniteEnabled then return end
+    if cacheBoostCount == 0 then
+        if tick() - lastRescanBoost >= RESCAN_COOLDOWN then
+            task.defer(rescanBoost)
+        end
+        return
+    end
+    compactAndApplyBoost()
+end)
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE FORÇA DO BOOST (ZERO LAG)
+--------------------------------------------------------------------------------
+local boostForceEnabled = false
+local CONFIG_FORCA_BOOST = 4000
+local cacheBoostForce, cacheBoostForceCount = {}, 0
+local lastRescanBoostForce = 0
+
+local function compactAndApplyBoostForce()
+    local f = boostForceEnabled and CONFIG_FORCA_BOOST or 1000
+    local n = 0
+    for i = 1, cacheBoostForceCount do
+        local obj = cacheBoostForce[i]
+        if type(obj) == "table" and rawget(obj, "BOOST_ACCEL_GROUND") then
+            obj.BOOST_ACCEL_GROUND = f
+            obj.BOOST_ACCEL_AIR    = f
+            n = n + 1
+            cacheBoostForce[n] = obj
+        end
+    end
+    for i = n + 1, cacheBoostForceCount do cacheBoostForce[i] = nil end
+    cacheBoostForceCount = n
+end
+
+local function rescanBoostForce()
+    local f = boostForceEnabled and CONFIG_FORCA_BOOST or 1000
+    local n = 0
+    for _, obj in pairs(getgc(true)) do
+        if type(obj) == "table" and rawget(obj, "BOOST_ACCEL_GROUND") then
+            obj.BOOST_ACCEL_GROUND = f
+            obj.BOOST_ACCEL_AIR    = f
+            n = n + 1
+            cacheBoostForce[n] = obj
+        end
+    end
+    cacheBoostForceCount = n
+    lastRescanBoostForce = tick()
+end
+
+local function setBoostForce(novaForca)
+    CONFIG_FORCA_BOOST = novaForca
+    if boostForceEnabled then
+        if cacheBoostForceCount > 0 then
+            compactAndApplyBoostForce()
+        else
+            task.defer(rescanBoostForce)
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    if not boostForceEnabled then return end
+    if cacheBoostForceCount == 0 then
+        if tick() - lastRescanBoostForce >= RESCAN_COOLDOWN then
+            task.defer(rescanBoostForce)
+        end
+        return
+    end
+    compactAndApplyBoostForce()
+end)
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE VELOCIDADE MÁXIMA (ZERO LAG)
+--------------------------------------------------------------------------------
+local speedModEnabled = false
+local CONFIG_VELOCIDADE_MAXIMA = 4000
+local cacheSpeed, cacheSpeedCount = {}, 0
+local lastRescanSpeed = 0
+
+local function compactAndApplySpeed()
+    local v = speedModEnabled and CONFIG_VELOCIDADE_MAXIMA or 2300
+    local ss = math.min(v * 0.7, 2500)
+    local n = 0
+    for i = 1, cacheSpeedCount do
+        local obj = cacheSpeed[i]
+        if type(obj) == "table" and rawget(obj, "CAR_MAX_SPEED") then
+            obj.CAR_MAX_SPEED = v
+            obj.SUPERSONIC_START_SPEED = ss
+            n = n + 1
+            cacheSpeed[n] = obj
+        end
+    end
+    for i = n + 1, cacheSpeedCount do cacheSpeed[i] = nil end
+    cacheSpeedCount = n
+end
+
+local function rescanSpeed()
+    local v = speedModEnabled and CONFIG_VELOCIDADE_MAXIMA or 2300
+    local ss = math.min(v * 0.7, 2500)
+    local n = 0
+    for _, obj in pairs(getgc(true)) do
+        if type(obj) == "table" and rawget(obj, "CAR_MAX_SPEED") then
+            obj.CAR_MAX_SPEED = v
+            obj.SUPERSONIC_START_SPEED = ss
+            n = n + 1
+            cacheSpeed[n] = obj
+        end
+    end
+    cacheSpeedCount = n
+    lastRescanSpeed = tick()
+end
+
+local function setMaxSpeed(novaVelocidade)
+    CONFIG_VELOCIDADE_MAXIMA = novaVelocidade
+    if speedModEnabled then
+        if cacheSpeedCount > 0 then
+            compactAndApplySpeed()
+        else
+            task.defer(rescanSpeed)
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    if not speedModEnabled then return end
+    if cacheSpeedCount == 0 then
+        if tick() - lastRescanSpeed >= RESCAN_COOLDOWN then
+            task.defer(rescanSpeed)
+        end
+        return
+    end
+    compactAndApplySpeed()
+end)
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE FORÇA E PULOS INFINITOS (TURBO SOCCER)
+--------------------------------------------------------------------------------
+local jumpModEnabled = false
+local infiniteJumpsOn = false
+
+local MULT_GROUND  = 1
+local MULT_DBL     = 1
+local MULT_FLIP    = 1
+local MULT_DODGE   = 1
+
+local constRef = nil
+local constOriginals = nil
+local lastRescanConst = 0
+
+local function captureConstOriginals(c)
+    constOriginals = {
+        JUMP_IMMEDIATE_FORCE = c.JUMP_IMMEDIATE_FORCE,
+        JUMP_ACCEL           = c.JUMP_ACCEL,
+        FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE  = c.FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE,
+        FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE = c.FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE,
+        FLIP_TORQUE_X = c.FLIP_TORQUE_X,
+        FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE = c.FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE,
+        FLIP_TORQUE_Y = c.FLIP_TORQUE_Y,
+    }
+end
+
+local function applyConstMult()
+    if not constRef or not constOriginals then return end
+    local c = constRef
+    local o = constOriginals
+
+    local mg = jumpModEnabled and MULT_GROUND or 1
+    local mf = jumpModEnabled and MULT_FLIP or 1
+    local md = jumpModEnabled and MULT_DODGE or 1
+
+    c.JUMP_IMMEDIATE_FORCE = o.JUMP_IMMEDIATE_FORCE * mg
+    c.JUMP_ACCEL           = o.JUMP_ACCEL           * mg
+
+    c.FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE  = o.FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE  * mf
+    c.FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE = o.FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE * mf
+    c.FLIP_TORQUE_X = o.FLIP_TORQUE_X * mf
+
+    c.FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE = o.FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE * md
+    c.FLIP_TORQUE_Y = o.FLIP_TORQUE_Y * md
+end
+
+local function rescanConst()
+    for _, obj in pairs(getgc(true)) do
+        if type(obj) == "table"
+           and rawget(obj, "JUMP_IMMEDIATE_FORCE") ~= nil
+           and rawget(obj, "FLIP_INITIAL_VEL_SCALE") ~= nil
+           and rawget(obj, "FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE") ~= nil then
+            constRef = obj
+            if not constOriginals then
+                captureConstOriginals(obj)
+            end
+            applyConstMult()
+            break
+        end
+    end
+    lastRescanConst = tick()
+end
+
+local carCache = setmetatable({}, {__mode = "v"})
+local carCount = 0
+local lastRescanCar = 0
+
+local function isCar(obj)
+    return type(obj) == "table"
+        and rawget(obj, "hasJumped")       ~= nil
+        and rawget(obj, "hasDoubleJumped") ~= nil
+        and rawget(obj, "hasFlipped")      ~= nil
+        and rawget(obj, "isOnGround")      ~= nil
+end
+
+local function installDoubleJumpHook(car)
+    if car._jpHooked then return end
+    local mt = getmetatable(car)
+    if type(mt) ~= "table" then return end
+
+    local origV3 = mt._updateDoubleJumpOrFlipV3
+    local origClassic = mt._updateDoubleJumpOrFlip
+    if type(origV3) ~= "function" and type(origClassic) ~= "function" then return end
+
+    car._jpHooked = true
+
+    local function wrap(orig)
+        return function(self, a, b, c)
+            if constRef and constOriginals and jumpModEnabled and MULT_DBL ~= 1 then
+                local saved = constRef.JUMP_IMMEDIATE_FORCE
+                constRef.JUMP_IMMEDIATE_FORCE = constOriginals.JUMP_IMMEDIATE_FORCE * MULT_DBL
+                local r = orig(self, a, b, c)
+                constRef.JUMP_IMMEDIATE_FORCE = saved
+                return r
+            end
+            return orig(self, a, b, c)
+        end
+    end
+
+    if type(origV3) == "function" then
+        car._updateDoubleJumpOrFlipV3 = wrap(origV3)
+    end
+    if type(origClassic) == "function" then
+        car._updateDoubleJumpOrFlip = wrap(origClassic)
+    end
+end
+
+local function rescanCars()
+    carCount = 0
+    for _, obj in pairs(getgc(true)) do
+        if isCar(obj) then
+            installDoubleJumpHook(obj)
+            carCount = carCount + 1
+            carCache[carCount] = obj
+        end
+    end
+    lastRescanCar = tick()
+end
+
+local function compactCars()
+    local n = 0
+    for i = 1, carCount do
+        local obj = carCache[i]
+        if isCar(obj) then
+            installDoubleJumpHook(obj)
+            n = n + 1
+            carCache[n] = obj
+        end
+    end
+    for i = n + 1, carCount do carCache[i] = nil end
+    carCount = n
+end
+
+RunService.Heartbeat:Connect(function()
+    if not constRef or not constOriginals then
+        if tick() - lastRescanConst >= 8 then
+            task.defer(rescanConst)
+        end
+    else
+        applyConstMult()
+    end
+
+    if infiniteJumpsOn or jumpModEnabled then
+        if carCount == 0 then
+            if tick() - lastRescanCar >= 3 then
+                task.defer(rescanCars)
+            end
+        else
+            compactCars()
+            if infiniteJumpsOn then
+                for i = 1, carCount do
+                    local car = carCache[i]
+                    if car then
+                        if car.isOnGround then
+                            car.hasJumped         = false
+                            car.jumpTime          = 0
+                            car.hasDoubleJumped   = false
+                            car.hasFlipped        = false
+                            car.airTime           = 0
+                            car.airTimeSinceJump  = 0
+                            car.flipTime          = 0
+                        else
+                            car.hasDoubleJumped   = false
+                            car.airTimeSinceJump  = 0
+                            if not car.isFlipping then
+                                car.hasFlipped = false
+                                car.flipTime   = 0
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.defer(rescanConst)
+task.defer(rescanCars)
+
+--------------------------------------------------------------------------------
+-- 1. TELA DE CARREGAMENTO
+--------------------------------------------------------------------------------
+local LoadingFrame = Instance.new("Frame")
+LoadingFrame.Name = "LoadingFrame"
+LoadingFrame.Size = UDim2.new(0, 320, 0, 215)
+LoadingFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+LoadingFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+LoadingFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+LoadingFrame.BackgroundTransparency = 0.05
+LoadingFrame.BorderSizePixel = 0
+LoadingFrame.ClipsDescendants = true
+LoadingFrame.Parent = ScreenGui
+
+Instance.new("UICorner", LoadingFrame).CornerRadius = UDim.new(0, 14)
+local LoadingStroke = Instance.new("UIStroke")
+LoadingStroke.Color = Color3.fromRGB(120, 90, 255)
+LoadingStroke.Transparency = 0.4
+LoadingStroke.Thickness = 1.5
+LoadingStroke.Parent = LoadingFrame
+
+local LoadingLogo = Instance.new("ImageLabel")
+LoadingLogo.Size = UDim2.new(0, 84, 0, 84)
+LoadingLogo.AnchorPoint = Vector2.new(0.5, 0)
+LoadingLogo.Position = UDim2.new(0.5, 0, 0, 15)
+LoadingLogo.BackgroundTransparency = 1
+LoadingLogo.Image = "rbxassetid://125654698796433"
+LoadingLogo.Parent = LoadingFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 20)
+TitleLabel.Position = UDim2.new(0, 0, 0, 105)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "ASTRA UI"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 14
+TitleLabel.Parent = LoadingFrame
+
+local SubtitleLabel = Instance.new("TextLabel")
+SubtitleLabel.Size = UDim2.new(1, 0, 0, 16)
+SubtitleLabel.Position = UDim2.new(0, 0, 0, 123)
+SubtitleLabel.BackgroundTransparency = 1
+SubtitleLabel.Font = Enum.Font.Gotham
+SubtitleLabel.Text = "Carregando recursos..."
+SubtitleLabel.TextColor3 = Color3.fromRGB(160, 160, 190)
+SubtitleLabel.TextSize = 10
+SubtitleLabel.Parent = LoadingFrame
+
+local BarBackground = Instance.new("Frame")
+BarBackground.Size = UDim2.new(0, 260, 0, 6)
+BarBackground.AnchorPoint = Vector2.new(0.5, 0)
+BarBackground.Position = UDim2.new(0.5, 0, 0, 153)
+BarBackground.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+BarBackground.BorderSizePixel = 0
+BarBackground.Parent = LoadingFrame
+Instance.new("UICorner", BarBackground).CornerRadius = UDim.new(1, 0)
+
+local BarFill = Instance.new("Frame")
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+BarFill.BackgroundColor3 = Color3.fromRGB(120, 90, 255)
+BarFill.BorderSizePixel = 0
+BarFill.Parent = BarBackground
+Instance.new("UICorner", BarFill).CornerRadius = UDim.new(1, 0)
+
+local PercentLabel = Instance.new("TextLabel")
+PercentLabel.Size = UDim2.new(1, 0, 0, 16)
+PercentLabel.Position = UDim2.new(0, 0, 0, 169)
+PercentLabel.BackgroundTransparency = 1
+PercentLabel.Font = Enum.Font.GothamBold
+PercentLabel.Text = "0%"
+PercentLabel.TextColor3 = Color3.fromRGB(140, 120, 255)
+PercentLabel.TextSize = 11
+PercentLabel.Parent = LoadingFrame
+
+--------------------------------------------------------------------------------
+-- 2. BOTÃO FLUTUANTE
+--------------------------------------------------------------------------------
+local OpenButton = Instance.new("ImageButton")
+OpenButton.Name = "OpenButton"
+OpenButton.Size = UDim2.new(0, 44, 0, 44)
+OpenButton.Position = UDim2.new(0, 20, 0.5, -22)
+OpenButton.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+OpenButton.BackgroundTransparency = 0.2
+OpenButton.Image = "rbxassetid://125654698796433"
+OpenButton.Visible = false
+OpenButton.Active = true
+OpenButton.Draggable = true
+OpenButton.Parent = ScreenGui
+
+Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 10)
+local OpenStroke = Instance.new("UIStroke")
+OpenStroke.Color = Color3.fromRGB(120, 90, 255)
+OpenStroke.Transparency = 0.3
+OpenStroke.Thickness = 1.5
+OpenStroke.Parent = OpenButton
+
+--------------------------------------------------------------------------------
+-- 3. PAINEL PRINCIPAL
+--------------------------------------------------------------------------------
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 480, 0, 310)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(65, 65, 95)
+MainStroke.Transparency = 0.4
+MainStroke.Thickness = 1.2
+MainStroke.Parent = MainFrame
+
+local resizing = false
+local dragging = false
+local savedSize = MainFrame.Size
+
+-- Barra Superior
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+TopBar.BackgroundTransparency = 0.2
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 10)
+
+local TopBarFix = Instance.new("Frame")
+TopBarFix.Size = UDim2.new(1, 0, 0, 6)
+TopBarFix.Position = UDim2.new(0, 0, 1, -6)
+TopBarFix.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+TopBarFix.BackgroundTransparency = 0.2
+TopBarFix.BorderSizePixel = 0
+TopBarFix.Parent = TopBar
+
+local TopGlowLine = Instance.new("Frame")
+TopGlowLine.Size = UDim2.new(1, 0, 0, 1)
+TopGlowLine.Position = UDim2.new(0, 0, 1, 0)
+TopGlowLine.BackgroundColor3 = Color3.fromRGB(120, 90, 255)
+TopGlowLine.BackgroundTransparency = 0.4
+TopGlowLine.BorderSizePixel = 0
+TopGlowLine.Parent = TopBar
+
+local TopIcon = Instance.new("ImageLabel")
+TopIcon.Size = UDim2.new(0, 32, 0, 32)
+TopIcon.Position = UDim2.new(0, 8, 0.5, -16)
+TopIcon.BackgroundTransparency = 1
+TopIcon.Image = "rbxassetid://125654698796433"
+TopIcon.Parent = TopBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 250, 0, 18)
+Title.Position = UDim2.new(0, 46, 0, 5)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Astra UI"
+Title.TextColor3 = Color3.fromRGB(240, 240, 255)
+Title.TextSize = 12
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+local SubTitle = Instance.new("TextLabel")
+SubTitle.Size = UDim2.new(0, 250, 0, 12)
+SubTitle.Position = UDim2.new(0, 46, 0, 23)
+SubTitle.BackgroundTransparency = 1
+SubTitle.Font = Enum.Font.Gotham
+SubTitle.Text = "Turbo Soccer Pro"
+SubTitle.TextColor3 = Color3.fromRGB(140, 140, 170)
+SubTitle.TextSize = 9
+SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.Parent = TopBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 16, 0, 16)
+CloseBtn.Position = UDim2.new(1, -22, 0.5, -8)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(230, 70, 70)
+CloseBtn.Text = ""
+CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(1, 0)
+
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 16, 0, 16)
+MinimizeBtn.Position = UDim2.new(1, -44, 0.5, -8)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(230, 175, 50)
+MinimizeBtn.Text = ""
+MinimizeBtn.Parent = TopBar
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(1, 0)
+
+-- Barra Inferior (Arrastável)
+local BottomBar = Instance.new("Frame")
+BottomBar.Name = "BottomBar"
+BottomBar.Size = UDim2.new(1, 0, 0, 22)
+BottomBar.Position = UDim2.new(0, 0, 1, -22)
+BottomBar.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+BottomBar.BackgroundTransparency = 0.4
+BottomBar.BorderSizePixel = 0
+BottomBar.Parent = MainFrame
+
+local BottomGlowLine = Instance.new("Frame")
+BottomGlowLine.Size = UDim2.new(1, 0, 0, 1)
+BottomGlowLine.Position = UDim2.new(0, 0, 0, 0)
+BottomGlowLine.BackgroundColor3 = Color3.fromRGB(120, 90, 255)
+BottomGlowLine.BackgroundTransparency = 0.6
+BottomGlowLine.BorderSizePixel = 0
+BottomGlowLine.Parent = BottomBar
+
+local DragIndicator = Instance.new("Frame")
+DragIndicator.Size = UDim2.new(0, 36, 0, 4)
+DragIndicator.AnchorPoint = Vector2.new(0.5, 0.5)
+DragIndicator.Position = UDim2.new(0.5, 0, 0.5, 0)
+DragIndicator.BackgroundColor3 = Color3.fromRGB(120, 130, 170)
+DragIndicator.BackgroundTransparency = 0.5
+DragIndicator.BorderSizePixel = 0
+DragIndicator.Parent = BottomBar
+Instance.new("UICorner", DragIndicator).CornerRadius = UDim.new(1, 0)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+local isMinimized = false
+MinimizeBtn.MouseButton1Click:Connect(function()
+    if not isMinimized then
+        isMinimized = true
+        savedSize = MainFrame.Size
+        TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}):Play()
+        task.wait(0.3)
+        MainFrame.Visible = false
+        OpenButton.Visible = true
+        OpenButton.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(OpenButton, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 44, 0, 44)}):Play()
+    end
+end)
+
+OpenButton.MouseButton1Click:Connect(function()
+    if isMinimized then
+        isMinimized = false
+        TweenService:Create(OpenButton, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)}):Play()
+        task.wait(0.2)
+        OpenButton.Visible = false
+        MainFrame.Visible = true
+        TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = savedSize, BackgroundTransparency = 0.15}):Play()
+    end
+end)
+
+-- Arrastar sem teleporte
+local dragStartPos, startMousePos
+
+local function setupDragging(element)
+    element.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not resizing then
+            dragging = true
+            startMousePos = input.Position
+            dragStartPos = MainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+end
+
+setupDragging(TopBar)
+setupDragging(BottomBar)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - startMousePos
+        MainFrame.Position = UDim2.new(
+            dragStartPos.X.Scale, 
+            dragStartPos.X.Offset + delta.X, 
+            dragStartPos.Y.Scale, 
+            dragStartPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- 4. REDIMENSIONAR
+--------------------------------------------------------------------------------
+local ResizeHandle = Instance.new("Frame")
+ResizeHandle.Size = UDim2.new(0, 30, 0, 30)
+ResizeHandle.Position = UDim2.new(1, -30, 1, -30)
+ResizeHandle.BackgroundTransparency = 1
+ResizeHandle.Active = true
+ResizeHandle.Parent = MainFrame
+
+for i = 1, 3 do
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(0, 6 + (i * 4), 0, 2)
+    line.AnchorPoint = Vector2.new(1, 1)
+    line.Position = UDim2.new(1, -4, 1, -4 - (i * 4))
+    line.BackgroundColor3 = Color3.fromRGB(150, 165, 210)
+    line.BackgroundTransparency = 0.3
+    line.BorderSizePixel = 0
+    line.Parent = ResizeHandle
+    Instance.new("UICorner", line).CornerRadius = UDim.new(1, 0)
+end
+
+local resizeStartMouse, startSize
+
+ResizeHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        resizing = true
+        dragging = false
+        resizeStartMouse = input.Position
+        startSize = MainFrame.Size
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                resizing = false
+                savedSize = MainFrame.Size
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - resizeStartMouse
+        local newX = math.clamp(startSize.X.Offset + delta.X, 400, 780)
+        local newY = math.clamp(startSize.Y.Offset + delta.Y, 250, 580)
+        MainFrame.Size = UDim2.new(0, newX, 0, newY)
+        savedSize = MainFrame.Size
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- 5. FIM DO CARREGAMENTO
+--------------------------------------------------------------------------------
+task.spawn(function()
+    for i = 1, 100 do
+        task.wait(0.015)
+        BarFill.Size = UDim2.new(i / 100, 0, 1, 0)
+        PercentLabel.Text = i .. "%"
+    end
+    task.wait(0.2)
+    
+    local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    TweenService:Create(LoadingFrame, tweenInfo, {BackgroundTransparency = 1}):Play()
+    for _, desc in ipairs(LoadingFrame:GetDescendants()) do
+        if desc:IsA("TextLabel") then
+            TweenService:Create(desc, tweenInfo, {TextTransparency = 1}):Play()
+        elseif desc:IsA("Frame") then
+            TweenService:Create(desc, tweenInfo, {BackgroundTransparency = 1}):Play()
+        elseif desc:IsA("ImageLabel") then
+            TweenService:Create(desc, tweenInfo, {ImageTransparency = 1}):Play()
+        elseif desc:IsA("UIStroke") then
+            TweenService:Create(desc, tweenInfo, {Transparency = 1}):Play()
+        end
+    end
+    task.wait(0.4)
+    LoadingFrame:Destroy()
+    
+    MainFrame.Visible = true
+    MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = savedSize}):Play()
+end)
+
+--------------------------------------------------------------------------------
+-- 6. ABAS E CONTAINERS DE SEÇÃO
+--------------------------------------------------------------------------------
+local Sidebar = Instance.new("ScrollingFrame")
+Sidebar.Size = UDim2.new(0, 110, 1, -62)
+Sidebar.Position = UDim2.new(0, 0, 0, 40)
+Sidebar.BackgroundTransparency = 1
+Sidebar.BorderSizePixel = 0
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
+Sidebar.ScrollBarThickness = 0
+Sidebar.Parent = MainFrame
+
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+SidebarLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarLayout.Padding = UDim.new(0, 5)
+SidebarLayout.Parent = Sidebar
+
+local SidebarPadding = Instance.new("UIPadding")
+SidebarPadding.PaddingTop = UDim.new(0, 8)
+SidebarPadding.Parent = Sidebar
+
+local ContainerHolder = Instance.new("Frame")
+ContainerHolder.Size = UDim2.new(1, -118, 1, -68)
+ContainerHolder.Position = UDim2.new(0, 115, 0, 42)
+ContainerHolder.BackgroundTransparency = 1
+ContainerHolder.Parent = MainFrame
+
+local Tabs = {}
+local FirstTab = true
+
+local function CreateTab(name, symbol)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(1, -12, 0, 32)
+    TabButton.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+    TabButton.BackgroundTransparency = 0.4
+    TabButton.Font = Enum.Font.GothamMedium
+    TabButton.Text = "  " .. symbol .. "  " .. name
+    TabButton.TextColor3 = Color3.fromRGB(150, 150, 175)
+    TabButton.TextSize = 11
+    TabButton.TextXAlignment = Enum.TextXAlignment.Left
+    TabButton.Parent = Sidebar
+    Instance.new("UICorner", TabButton).CornerRadius = UDim.new(0, 6)
+
+    local TabContent = Instance.new("ScrollingFrame")
+    TabContent.Size = UDim2.new(1, 0, 1, 0)
+    TabContent.BackgroundTransparency = 1
+    TabContent.BorderSizePixel = 0
+    TabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+    TabContent.ScrollBarThickness = 2
+    TabContent.ScrollBarImageColor3 = Color3.fromRGB(120, 90, 255)
+    TabContent.Visible = false
+    TabContent.Parent = ContainerHolder
+
+    local ContentLayout = Instance.new("UIListLayout")
+    ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ContentLayout.Padding = UDim.new(0, 8)
+    ContentLayout.Parent = TabContent
+
+    ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabContent.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 12)
+    end)
+
+    if FirstTab then
+        FirstTab = false
+        TabContent.Visible = true
+        TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TabButton.BackgroundColor3 = Color3.fromRGB(120, 90, 255)
+    end
+
+    TabButton.MouseButton1Click:Connect(function()
+        for _, content in pairs(Tabs) do
+            content.Content.Visible = false
+            TweenService:Create(content.Button, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(150, 150, 175), BackgroundColor3 = Color3.fromRGB(20, 20, 28)}):Play()
+        end
+        TabContent.Visible = true
+        TweenService:Create(TabButton, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255), BackgroundColor3 = Color3.fromRGB(120, 90, 255)}):Play()
+    end)
+
+    table.insert(Tabs, {Button = TabButton, Content = TabContent})
+    return TabContent
+end
+
+local Tab1 = CreateTab("Carro", "🚗")
+local Tab2 = CreateTab("Ajustes", "⚙️")
+local Tab3 = CreateTab("Stats", "📊")
+
+local function CreateSection(parent, titleText)
+    local SectionWrapper = Instance.new("Frame")
+    SectionWrapper.Size = UDim2.new(1, -8, 0, 25)
+    SectionWrapper.BackgroundTransparency = 1
+    SectionWrapper.BorderSizePixel = 0
+    SectionWrapper.Parent = parent
+
+    local SectionLabel = Instance.new("TextLabel")
+    SectionLabel.Size = UDim2.new(1, -4, 0, 18)
+    SectionLabel.Position = UDim2.new(0, 4, 0, 0)
+    SectionLabel.BackgroundTransparency = 1
+    SectionLabel.Font = Enum.Font.GothamBold
+    SectionLabel.Text = titleText:upper()
+    SectionLabel.TextColor3 = Color3.fromRGB(130, 145, 195)
+    SectionLabel.TextSize = 9
+    SectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+    SectionLabel.Parent = SectionWrapper
+
+    local ContainerBox = Instance.new("Frame")
+    ContainerBox.Name = "ContainerBox"
+    ContainerBox.Size = UDim2.new(1, 0, 0, 10)
+    ContainerBox.Position = UDim2.new(0, 0, 0, 18)
+    ContainerBox.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
+    ContainerBox.BackgroundTransparency = 0.4
+    ContainerBox.BorderSizePixel = 0
+    ContainerBox.Parent = SectionWrapper
+    Instance.new("UICorner", ContainerBox).CornerRadius = UDim.new(0, 6)
+
+    local BoxStroke = Instance.new("UIStroke")
+    BoxStroke.Color = Color3.fromRGB(50, 50, 75)
+    BoxStroke.Transparency = 0.6
+    BoxStroke.Thickness = 1
+    BoxStroke.Parent = ContainerBox
+
+    local Boxlayout = Instance.new("UIListLayout")
+    Boxlayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    Boxlayout.SortOrder = Enum.SortOrder.LayoutOrder
+    Boxlayout.Padding = UDim.new(0, 4)
+    Boxlayout.Parent = ContainerBox
+
+    local BoxPadding = Instance.new("UIPadding")
+    BoxPadding.PaddingTop = UDim.new(0, 4)
+    BoxPadding.PaddingBottom = UDim.new(0, 4)
+    BoxPadding.Parent = ContainerBox
+
+    Boxlayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local newH = Boxlayout.AbsoluteContentSize.Y + 8
+        ContainerBox.Size = UDim2.new(1, 0, 0, newH)
+        SectionWrapper.Size = UDim2.new(1, -8, 0, newH + 22)
+    end)
+
+    return ContainerBox
+end
+
+local function CreateButton(parent, text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -8, 0, 26)
+    Btn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    Btn.BackgroundTransparency = 0.3
+    Btn.Font = Enum.Font.GothamMedium
+    Btn.Text = text
+    Btn.TextColor3 = Color3.fromRGB(215, 215, 235)
+    Btn.TextSize = 11
+    Btn.Parent = parent
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 5)
+
+    Btn.MouseButton1Click:Connect(function()
+        TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(120, 90, 255)}):Play()
+        task.wait(0.1)
+        TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 22, 32)}):Play()
+        if callback then callback() end
+    end)
+end
+
+-- Sub-slider reduzido para opções aninhadas (completamente integrado ao layout)
+local function CreateSubSlider(parent, text, min, max, default, callback)
+    local SliderVal = default or min
+    local SliderFrame = Instance.new("Frame")
+    SliderFrame.Size = UDim2.new(1, -16, 0, 36)
+    SliderFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
+    SliderFrame.BackgroundTransparency = 0.2
+    SliderFrame.Parent = parent
+    Instance.new("UICorner", SliderFrame).CornerRadius = UDim.new(0, 5)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -10, 0, 16)
+    Label.Position = UDim2.new(0, 8, 0, 2)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.GothamMedium
+    Label.Text = "↳ " .. text .. ": " .. string.format("%.2fx", SliderVal)
+    Label.TextColor3 = Color3.fromRGB(180, 180, 205)
+    Label.TextSize = 10
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = SliderFrame
+
+    local SliderBar = Instance.new("Frame")
+    SliderBar.Size = UDim2.new(1, -16, 0, 5)
+    SliderBar.Position = UDim2.new(0, 8, 0, 22)
+    SliderBar.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+    SliderBar.BorderSizePixel = 0
+    SliderBar.Parent = SliderFrame
+    Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(1, 0)
+
+    local pct = (SliderVal - min) / (max - min)
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new(pct, 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(120, 90, 255)
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderBar
+    Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
+
+    local draggingSlider = false
+    local connection = nil
+    local lastCallbackVal = SliderVal
+
+    local function updateSlider(inputPosition)
+        local barPos = SliderBar.AbsolutePosition
+        local barSize = SliderBar.AbsoluteSize
+        local p = math.clamp((inputPosition - barPos.X) / barSize.X, 0, 1)
+        local newVal = min + ((max - min) * p)
+        newVal = math.floor(newVal * 20 + 0.5) / 20
+
+        if newVal ~= SliderVal then
+            SliderVal = newVal
+            SliderFill.Size = UDim2.new(p, 0, 1, 0)
+            Label.Text = "↳ " .. text .. ": " .. string.format("%.2fx", SliderVal)
+
+            if newVal ~= lastCallbackVal then
+                lastCallbackVal = newVal
+                if callback then callback(SliderVal) end
+            end
+        end
+    end
+
+    SliderBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = true
+            updateSlider(input.Position.X)
+
+            if connection then connection:Disconnect() end
+            connection = UserInputService.InputChanged:Connect(function(moveInput)
+                if draggingSlider and (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) then
+                    updateSlider(moveInput.Position.X)
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = false
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+        end
+    end)
+
+    return SliderFrame
+end
+
+-- Toggle com múltiplos sub-sliders dinâmicos embutidos abaixo
+local function CreateToggleWithMultiSubSliders(parent, text, subSlidersConfig, callback)
+    local Toggled = false
+
+    local GroupFrame = Instance.new("Frame")
+    GroupFrame.Size = UDim2.new(1, -8, 0, 28)
+    GroupFrame.BackgroundTransparency = 1
+    GroupFrame.ClipsDescendants = true
+    GroupFrame.Parent = parent
+
+    local groupLayout = Instance.new("UIListLayout")
+    groupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    groupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    groupLayout.Padding = UDim.new(0, 4)
+    groupLayout.Parent = GroupFrame
+
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(1, 0, 0, 28)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    ToggleBtn.BackgroundTransparency = 0.3
+    ToggleBtn.Font = Enum.Font.GothamMedium
+    ToggleBtn.Text = "   " .. text
+    ToggleBtn.TextColor3 = Color3.fromRGB(215, 215, 235)
+    ToggleBtn.TextSize = 11
+    ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleBtn.LayoutOrder = 1
+    ToggleBtn.Parent = GroupFrame
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 5)
+
+    local SwitchTrack = Instance.new("Frame")
+    SwitchTrack.Size = UDim2.new(0, 32, 0, 16)
+    SwitchTrack.Position = UDim2.new(1, -38, 0.5, -8)
+    SwitchTrack.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+    SwitchTrack.BorderSizePixel = 0
+    SwitchTrack.Parent = ToggleBtn
+    Instance.new("UICorner", SwitchTrack).CornerRadius = UDim.new(1, 0)
+
+    local SwitchKnob = Instance.new("Frame")
+    SwitchKnob.Size = UDim2.new(0, 12, 0, 12)
+    SwitchKnob.Position = UDim2.new(0, 2, 0.5, -6)
+    SwitchKnob.BackgroundColor3 = Color3.fromRGB(150, 150, 175)
+    SwitchKnob.BorderSizePixel = 0
+    SwitchKnob.Parent = SwitchTrack
+    Instance.new("UICorner", SwitchKnob).CornerRadius = UDim.new(1, 0)
+
+    local subObjects = {}
+    for idx, cfg in ipairs(subSlidersConfig) do
+        local sub = CreateSubSlider(GroupFrame, cfg.label, cfg.min, cfg.max, cfg.default, cfg.callback)
+        sub.Visible = false
+        sub.LayoutOrder = idx + 1
+        table.insert(subObjects, sub)
+    end
+
+    groupLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        if Toggled then
+            GroupFrame.Size = UDim2.new(1, -8, 0, groupLayout.AbsoluteContentSize.Y)
+        else
+            GroupFrame.Size = UDim2.new(1, -8, 0, 28)
+        end
+    end)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        Toggled = not Toggled
+        local targetTrackColor = Toggled and Color3.fromRGB(120, 90, 255) or Color3.fromRGB(35, 35, 48)
+        local targetKnobColor = Toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 175)
+        local targetKnobPos = Toggled and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
+
+        TweenService:Create(SwitchTrack, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetTrackColor}):Play()
+        TweenService:Create(SwitchKnob, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetKnobColor, Position = targetKnobPos}):Play()
+
+        for _, sub in ipairs(subObjects) do
+            sub.Visible = Toggled
+        end
+
+        if Toggled then
+            TweenService:Create(GroupFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, -8, 0, groupLayout.AbsoluteContentSize.Y)}):Play()
+        else
+            TweenService:Create(GroupFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, -8, 0, 28)}):Play()
+        end
+
+        if callback then callback(Toggled) end
+    end)
+end
+
+-- Toggle Simples (Padrão)
+local function CreateToggle(parent, text, callback)
+    local Toggled = false
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(1, -8, 0, 28)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    ToggleBtn.BackgroundTransparency = 0.3
+    ToggleBtn.Font = Enum.Font.GothamMedium
+    ToggleBtn.Text = "   " .. text
+    ToggleBtn.TextColor3 = Color3.fromRGB(215, 215, 235)
+    ToggleBtn.TextSize = 11
+    ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleBtn.Parent = parent
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 5)
+
+    local SwitchTrack = Instance.new("Frame")
+    SwitchTrack.Size = UDim2.new(0, 32, 0, 16)
+    SwitchTrack.Position = UDim2.new(1, -38, 0.5, -8)
+    SwitchTrack.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+    SwitchTrack.BorderSizePixel = 0
+    SwitchTrack.Parent = ToggleBtn
+    Instance.new("UICorner", SwitchTrack).CornerRadius = UDim.new(1, 0)
+
+    local SwitchKnob = Instance.new("Frame")
+    SwitchKnob.Size = UDim2.new(0, 12, 0, 12)
+    SwitchKnob.Position = UDim2.new(0, 2, 0.5, -6)
+    SwitchKnob.BackgroundColor3 = Color3.fromRGB(150, 150, 175)
+    SwitchKnob.BorderSizePixel = 0
+    SwitchKnob.Parent = SwitchTrack
+    Instance.new("UICorner", SwitchKnob).CornerRadius = UDim.new(1, 0)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        Toggled = not Toggled
+        local targetTrackColor = Toggled and Color3.fromRGB(120, 90, 255) or Color3.fromRGB(35, 35, 48)
+        local targetKnobColor = Toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 175)
+        local targetKnobPos = Toggled and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
+
+        TweenService:Create(SwitchTrack, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetTrackColor}):Play()
+        TweenService:Create(SwitchKnob, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetKnobColor, Position = targetKnobPos}):Play()
+
+        if callback then callback(Toggled) end
+    end)
+end
+
+-- Montagem das Seções na Aba Carro
+local Sec1 = CreateSection(Tab1, "Hacks Principais")
+
+CreateToggleWithMultiSubSliders(Sec1, "Boost Infinito", {
+    {label = "Força do Boost", min = 50, max = 10000, default = 4000, callback = function(val) setBoostForce(val) end}
+}, function(state)
+    boostInfiniteEnabled = state
+end)
+
+CreateToggleWithMultiSubSliders(Sec1, "Modificar Velocidade Máxima", {
+    {label = "Velocidade Máxima", min = 50, max = 10000, default = 4000, callback = function(val) setMaxSpeed(val) end}
+}, function(state)
+    speedModEnabled = state
+    if not state then
+        compactAndApplySpeed()
+    else
+        setMaxSpeed(CONFIG_VELOCIDADE_MAXIMA)
+    end
+end)
+
+-- Nova Seção de Pulos com as 4 opções dinâmicas solicitadas
+CreateToggleWithMultiSubSliders(Sec1, "Modificar Força de Pulo", {
+    {label = "Pulo do Chão", min = 0.5, max = 10, default = 1, callback = function(val) MULT_GROUND = val applyConstMult() end},
+    {label = "Double Jump", min = 0.5, max = 10, default = 1, callback = function(val) MULT_DBL = val end},
+    {label = "Flip (Frente/Trás)", min = 0.5, max = 10, default = 1, callback = function(val) MULT_FLIP = val applyConstMult() end},
+    {label = "Esquiva (Lados)", min = 0.5, max = 10, default = 1, callback = function(val) MULT_DODGE = val applyConstMult() end}
+}, function(state)
+    jumpModEnabled = state
+    if not state then
+        applyConstMult()
+    end
+end)
+
+CreateToggle(Sec1, "Pulos Infinitos", function(state)
+    infiniteJumpsOn = state
+    if state and carCount == 0 then task.defer(rescanCars) end
+end)
+
+local Sec3 = CreateSection(Tab2, "Otimização")
+local function CreateSlider(parent, text, min, max, default, callback)
+    local SliderVal = default or min
+    local SliderFrame = Instance.new("Frame")
+    SliderFrame.Size = UDim2.new(1, -8, 0, 42)
+    SliderFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    SliderFrame.BackgroundTransparency = 0.3
+    SliderFrame.Parent = parent
+    Instance.new("UICorner", SliderFrame).CornerRadius = UDim.new(0, 5)
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -12, 0, 20)
+    Label.Position = UDim2.new(0, 6, 0, 2)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.GothamMedium
+    Label.Text = text .. ": " .. SliderVal
+    Label.TextColor3 = Color3.fromRGB(215, 215, 235)
+    Label.TextSize = 11
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = SliderFrame
+
+    local SliderBar = Instance.new("Frame")
+    SliderBar.Size = UDim2.new(1, -16, 0, 6)
+    SliderBar.Position = UDim2.new(0, 8, 0, 26)
+    SliderBar.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    SliderBar.BorderSizePixel = 0
+    SliderBar.Parent = SliderFrame
+    Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(1, 0)
+
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new((SliderVal - min) / (max - min), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(120, 90, 255)
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderBar
+    Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
+
+    local draggingSlider = false
+    local connection = nil
+
+    SliderBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = true
+            local function update(pos)
+                local barPos = SliderBar.AbsolutePosition.X
+                local barSize = SliderBar.AbsoluteSize.X
+                local p = math.clamp((pos - barPos) / barSize, 0, 1)
+                SliderVal = math.floor(min + ((max - min) * p))
+                SliderFill.Size = UDim2.new(p, 0, 1, 0)
+                Label.Text = text .. ": " .. SliderVal
+                if callback then callback(SliderVal) end
+            end
+            update(input.Position.X)
+            if connection then connection:Disconnect() end
+            connection = UserInputService.InputChanged:Connect(function(m)
+                if draggingSlider and (m.UserInputType == Enum.UserInputType.MouseMovement or m.UserInputType == Enum.UserInputType.Touch) then
+                    update(m.Position.X)
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = false
+            if connection then connection:Disconnect() end
+        end
+    end)
+end
+
+CreateSlider(Sec3, "Sensibilidade do Controlo", 1, 10, 5, function(val) print("Valor:", val) end)
+
+local Sec4 = CreateSection(Tab3, "Informações")
+CreateButton(Sec4, "Verificar Status do Script", function() print("Tudo OK e otimizado!") end)
+
+print("Astra UI - Turbo Soccer Pro Ultimate com Sistema Completo de Pulos Integrado!")
