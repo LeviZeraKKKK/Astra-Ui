@@ -1,5 +1,5 @@
 --[[\
-    Astra UI Library - Turbo Soccer Pro Ultimate (Nested Sub-Sliders & Zero-Lag)
+    Astra UI Library - Turbo Soccer Pro Ultimate (Jump Customizer & Zero-Lag)
     Linguagem: Luau (Roblox)
 ]]--
 
@@ -81,12 +81,13 @@ end)
 -- LÓGICA DE FORÇA DO BOOST (ZERO LAG)
 --------------------------------------------------------------------------------
 local boostForceEnabled = false
-local CONFIG_FORCA_BOOST = 4000
+local MULT_BOOST_FORCE = 1
+local BASE_BOOST_FORCE = 4000
 local cacheBoostForce, cacheBoostForceCount = {}, 0
 local lastRescanBoostForce = 0
 
 local function compactAndApplyBoostForce()
-    local f = boostForceEnabled and CONFIG_FORCA_BOOST or 1000
+    local f = boostForceEnabled and (BASE_BOOST_FORCE * MULT_BOOST_FORCE) or 1000
     local n = 0
     for i = 1, cacheBoostForceCount do
         local obj = cacheBoostForce[i]
@@ -102,7 +103,7 @@ local function compactAndApplyBoostForce()
 end
 
 local function rescanBoostForce()
-    local f = boostForceEnabled and CONFIG_FORCA_BOOST or 1000
+    local f = boostForceEnabled and (BASE_BOOST_FORCE * MULT_BOOST_FORCE) or 1000
     local n = 0
     for _, obj in pairs(getgc(true)) do
         if type(obj) == "table" and rawget(obj, "BOOST_ACCEL_GROUND") then
@@ -116,8 +117,8 @@ local function rescanBoostForce()
     lastRescanBoostForce = tick()
 end
 
-local function setBoostForce(novaForca)
-    CONFIG_FORCA_BOOST = novaForca
+local function setBoostForceMultiplier(mult)
+    MULT_BOOST_FORCE = mult
     if boostForceEnabled then
         if cacheBoostForceCount > 0 then
             compactAndApplyBoostForce()
@@ -142,12 +143,13 @@ end)
 -- LÓGICA DE VELOCIDADE MÁXIMA (ZERO LAG)
 --------------------------------------------------------------------------------
 local speedModEnabled = false
-local CONFIG_VELOCIDADE_MAXIMA = 4000
+local MULT_SPEED = 1
+local BASE_MAX_SPEED = 2300
 local cacheSpeed, cacheSpeedCount = {}, 0
 local lastRescanSpeed = 0
 
 local function compactAndApplySpeed()
-    local v = speedModEnabled and CONFIG_VELOCIDADE_MAXIMA or 2300
+    local v = speedModEnabled and (BASE_MAX_SPEED * MULT_SPEED) or 2300
     local ss = math.min(v * 0.7, 2500)
     local n = 0
     for i = 1, cacheSpeedCount do
@@ -164,7 +166,7 @@ local function compactAndApplySpeed()
 end
 
 local function rescanSpeed()
-    local v = speedModEnabled and CONFIG_VELOCIDADE_MAXIMA or 2300
+    local v = speedModEnabled and (BASE_MAX_SPEED * MULT_SPEED) or 2300
     local ss = math.min(v * 0.7, 2500)
     local n = 0
     for _, obj in pairs(getgc(true)) do
@@ -179,8 +181,8 @@ local function rescanSpeed()
     lastRescanSpeed = tick()
 end
 
-local function setMaxSpeed(novaVelocidade)
-    CONFIG_VELOCIDADE_MAXIMA = novaVelocidade
+local function setSpeedMultiplier(mult)
+    MULT_SPEED = mult
     if speedModEnabled then
         if cacheSpeedCount > 0 then
             compactAndApplySpeed()
@@ -200,6 +202,186 @@ RunService.Heartbeat:Connect(function()
     end
     compactAndApplySpeed()
 end)
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE FORÇA E PULOS INFINITOS (TURBO SOCCER)
+--------------------------------------------------------------------------------
+local jumpModEnabled = false
+local infiniteJumpsOn = false
+
+local MULT_GROUND  = 1
+local MULT_DBL     = 1
+local MULT_FLIP    = 1
+local MULT_DODGE   = 1
+
+local constRef = nil
+local constOriginals = nil
+local lastRescanConst = 0
+
+local function captureConstOriginals(c)
+    constOriginals = {
+        JUMP_IMMEDIATE_FORCE = c.JUMP_IMMEDIATE_FORCE,
+        JUMP_ACCEL           = c.JUMP_ACCEL,
+        FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE  = c.FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE,
+        FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE = c.FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE,
+        FLIP_TORQUE_X = c.FLIP_TORQUE_X,
+        FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE = c.FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE,
+        FLIP_TORQUE_Y = c.FLIP_TORQUE_Y,
+    }
+end
+
+local function applyConstMult()
+    if not constRef or not constOriginals then return end
+    local c = constRef
+    local o = constOriginals
+
+    local mg = jumpModEnabled and MULT_GROUND or 1
+    local mf = jumpModEnabled and MULT_FLIP or 1
+    local md = jumpModEnabled and MULT_DODGE or 1
+
+    c.JUMP_IMMEDIATE_FORCE = o.JUMP_IMMEDIATE_FORCE * mg
+    c.JUMP_ACCEL           = o.JUMP_ACCEL           * mg
+
+    c.FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE  = o.FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE  * mf
+    c.FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE = o.FLIP_BACKWARD_IMPULSE_MAX_SPEED_SCALE * mf
+    c.FLIP_TORQUE_X = o.FLIP_TORQUE_X * mf
+
+    c.FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE = o.FLIP_SIDE_IMPULSE_MAX_SPEED_SCALE * md
+    c.FLIP_TORQUE_Y = o.FLIP_TORQUE_Y * md
+end
+
+local function rescanConst()
+    for _, obj in pairs(getgc(true)) do
+        if type(obj) == "table"
+           and rawget(obj, "JUMP_IMMEDIATE_FORCE") ~= nil
+           and rawget(obj, "FLIP_INITIAL_VEL_SCALE") ~= nil
+           and rawget(obj, "FLIP_FORWARD_IMPULSE_MAX_SPEED_SCALE") ~= nil then
+            constRef = obj
+            if not constOriginals then
+                captureConstOriginals(obj)
+            end
+            applyConstMult()
+            break
+        end
+    end
+    lastRescanConst = tick()
+end
+
+local carCache = setmetatable({}, {__mode = "v"})
+local carCount = 0
+local lastRescanCar = 0
+
+local function isCar(obj)
+    return type(obj) == "table"
+        and rawget(obj, "hasJumped")       ~= nil
+        and rawget(obj, "hasDoubleJumped") ~= nil
+        and rawget(obj, "hasFlipped")      ~= nil
+        and rawget(obj, "isOnGround")      ~= nil
+end
+
+local function installDoubleJumpHook(car)
+    if car._jpHooked then return end
+    local mt = getmetatable(car)
+    if type(mt) ~= "table" then return end
+
+    local origV3 = mt._updateDoubleJumpOrFlipV3
+    local origClassic = mt._updateDoubleJumpOrFlip
+    if type(origV3) ~= "function" and type(origClassic) ~= "function" then return end
+
+    car._jpHooked = true
+
+    local function wrap(orig)
+        return function(self, a, b, c)
+            if constRef and constOriginals and jumpModEnabled and MULT_DBL ~= 1 then
+                local saved = constRef.JUMP_IMMEDIATE_FORCE
+                constRef.JUMP_IMMEDIATE_FORCE = constOriginals.JUMP_IMMEDIATE_FORCE * MULT_DBL
+                local r = orig(self, a, b, c)
+                constRef.JUMP_IMMEDIATE_FORCE = saved
+                return r
+            end
+            return orig(self, a, b, c)
+        end
+    end
+
+    if type(origV3) == "function" then
+        car._updateDoubleJumpOrFlipV3 = wrap(origV3)
+    end
+    if type(origClassic) == "function" then
+        car._updateDoubleJumpOrFlip = wrap(origClassic)
+    end
+end
+
+local function rescanCars()
+    carCount = 0
+    for _, obj in pairs(getgc(true)) do
+        if isCar(obj) then
+            installDoubleJumpHook(obj)
+            carCount = carCount + 1
+            carCache[carCount] = obj
+        end
+    end
+    lastRescanCar = tick()
+end
+
+local function compactCars()
+    local n = 0
+    for i = 1, carCount do
+        local obj = carCache[i]
+        if isCar(obj) then
+            installDoubleJumpHook(obj)
+            n = n + 1
+            carCache[n] = obj
+        end
+    end
+    for i = n + 1, carCount do carCache[i] = nil end
+    carCount = n
+end
+
+RunService.Heartbeat:Connect(function()
+    if not constRef or not constOriginals then
+        if tick() - lastRescanConst >= 8 then
+            task.defer(rescanConst)
+        end
+    else
+        applyConstMult()
+    end
+
+    if infiniteJumpsOn or jumpModEnabled then
+        if carCount == 0 then
+            if tick() - lastRescanCar >= 3 then
+                task.defer(rescanCars)
+            end
+        else
+            compactCars()
+            if infiniteJumpsOn then
+                for i = 1, carCount do
+                    local car = carCache[i]
+                    if car then
+                        if car.isOnGround then
+                            car.hasJumped         = false
+                            car.jumpTime          = 0
+                            car.hasDoubleJumped   = false
+                            car.hasFlipped        = false
+                            car.airTime           = 0
+                            car.airTimeSinceJump  = 0
+                            car.flipTime          = 0
+                        else
+                            car.hasDoubleJumped   = false
+                            car.airTimeSinceJump  = 0
+                            if not car.isFlipping then
+                                car.hasFlipped = false
+                                car.flipTime   = 0
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.defer(rescanConst)
+task.defer(rescanCars)
 
 --------------------------------------------------------------------------------
 -- 1. TELA DE CARREGAMENTO
@@ -654,9 +836,9 @@ local function CreateTab(name, symbol)
     return TabContent
 end
 
-local Tab1 = CreateTab("Carro", "🚗")
-local Tab2 = CreateTab("Ajustes", "⚙️")
-local Tab3 = CreateTab("Stats", "📊")
+local Tab1 = CreateTab("Carro", "Car")
+local Tab2 = CreateTab("Ajustes", "Set")
+local Tab3 = CreateTab("Stats", "Stat")
 
 local function CreateSection(parent, titleText)
     local SectionWrapper = Instance.new("Frame")
@@ -732,7 +914,8 @@ local function CreateButton(parent, text, callback)
     end)
 end
 
--- Sub-slider reduzido que se adapta perfeitamente direto abaixo do toggle
+-- Sub-slider padrão com linha branca em 1.00x
+local subSliderList = {}
 local function CreateSubSlider(parent, text, min, max, default, callback)
     local SliderVal = default or min
     local SliderFrame = Instance.new("Frame")
@@ -747,7 +930,7 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
     Label.Position = UDim2.new(0, 8, 0, 2)
     Label.BackgroundTransparency = 1
     Label.Font = Enum.Font.GothamMedium
-    Label.Text = "↳ " .. text .. ": " .. SliderVal
+    Label.Text = "> " .. text .. ": " .. string.format("%.2fx", SliderVal)
     Label.TextColor3 = Color3.fromRGB(180, 180, 205)
     Label.TextSize = 10
     Label.TextXAlignment = Enum.TextXAlignment.Left
@@ -762,16 +945,17 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
     Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(1, 0)
 
     local defaultMarker = Instance.new("Frame")
-    local defaultPos = math.clamp((2300 - min) / (max - min), 0, 1)
+    local defaultPos = math.clamp((1 - min) / (max - min), 0, 1)
     defaultMarker.Size = UDim2.new(0, 2, 0, 9)
     defaultMarker.Position = UDim2.new(defaultPos, -1, 0, -2)
-    defaultMarker.BackgroundColor3 = Color3.fromRGB(130, 130, 150)
-    defaultMarker.BackgroundTransparency = 0.3
+    defaultMarker.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    defaultMarker.BackgroundTransparency = 0.2
     defaultMarker.BorderSizePixel = 0
     defaultMarker.Parent = SliderBar
 
+    local pct = (SliderVal - min) / (max - min)
     local SliderFill = Instance.new("Frame")
-    SliderFill.Size = UDim2.new((SliderVal - min) / (max - min), 0, 1, 0)
+    SliderFill.Size = UDim2.new(pct, 0, 1, 0)
     SliderFill.BackgroundColor3 = Color3.fromRGB(120, 90, 255)
     SliderFill.BorderSizePixel = 0
     SliderFill.Parent = SliderBar
@@ -784,13 +968,14 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
     local function updateSlider(inputPosition)
         local barPos = SliderBar.AbsolutePosition
         local barSize = SliderBar.AbsoluteSize
-        local pos = math.clamp((inputPosition - barPos.X) / barSize.X, 0, 1)
-        local newVal = math.floor(min + ((max - min) * pos))
+        local p = math.clamp((inputPosition - barPos.X) / barSize.X, 0, 1)
+        local newVal = min + ((max - min) * p)
+        newVal = math.floor(newVal * 20 + 0.5) / 20
 
         if newVal ~= SliderVal then
             SliderVal = newVal
-            SliderFill.Size = UDim2.new(pos, 0, 1, 0)
-            Label.Text = "↳ " .. text .. ": " .. SliderVal
+            SliderFill.Size = UDim2.new(p, 0, 1, 0)
+            Label.Text = "> " .. text .. ": " .. string.format("%.2fx", SliderVal)
 
             if newVal ~= lastCallbackVal then
                 lastCallbackVal = newVal
@@ -823,14 +1008,31 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
         end
     end)
 
+    local objData = {
+        frame = SliderFrame,
+        fill = SliderFill,
+        label = Label,
+        textBase = text,
+        min = min,
+        max = max,
+        setValue = function(v)
+            SliderVal = v
+            lastCallbackVal = v
+            local p = math.clamp((v - min) / (max - min), 0, 1)
+            SliderFill.Size = UDim2.new(p, 0, 1, 0)
+            Label.Text = "> " .. text .. ": " .. string.format("%.2fx", v)
+            if callback then callback(v) end
+        end
+    }
+    table.insert(subSliderList, objData)
+
     return SliderFrame
 end
 
--- Função para criar um grupo (Toggle + Sub-slider exatamente abaixo empurrando o container)
-local function CreateToggleWithDynamicSub(parent, text, callback)
+-- Toggle com múltiplos sub-sliders dinâmicos
+local function CreateToggleWithMultiSubSliders(parent, text, subSlidersConfig, callback)
     local Toggled = false
 
-    -- Contêiner wrapper exclusivo para este Toggle e seu Sub-slider
     local GroupFrame = Instance.new("Frame")
     GroupFrame.Size = UDim2.new(1, -8, 0, 28)
     GroupFrame.BackgroundTransparency = 1
@@ -872,23 +1074,43 @@ local function CreateToggleWithDynamicSub(parent, text, callback)
     SwitchKnob.Parent = SwitchTrack
     Instance.new("UICorner", SwitchKnob).CornerRadius = UDim.new(1, 0)
 
-    local subSliderObj = nil
-    if text:find("Boost") and not text:find("Infinito") then
-        subSliderObj = CreateSubSlider(GroupFrame, "Força do Boost", 50, 10000, 4000, function(val)
-            setBoostForce(val)
+    local subObjects = {}
+    for idx, cfg in ipairs(subSlidersConfig) do
+        local sub = CreateSubSlider(GroupFrame, cfg.label, cfg.min, cfg.max, cfg.default, cfg.callback)
+        sub.Visible = false
+        sub.LayoutOrder = idx + 1
+        table.insert(subObjects, sub)
+    end
+
+    local resetBtnObj = nil
+    if text:find("Força de Pulo") then
+        local ResetBtn = Instance.new("TextButton")
+        ResetBtn.Size = UDim2.new(1, -16, 0, 26)
+        ResetBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+        ResetBtn.BackgroundTransparency = 0.3
+        ResetBtn.Font = Enum.Font.GothamMedium
+        ResetBtn.Text = "Resetar Valores (1.00x)"
+        ResetBtn.TextColor3 = Color3.fromRGB(215, 215, 235)
+        ResetBtn.TextSize = 10
+        ResetBtn.Visible = false
+        ResetBtn.LayoutOrder = #subSlidersConfig + 2
+        ResetBtn.Parent = GroupFrame
+        Instance.new("UICorner", ResetBtn).CornerRadius = UDim.new(0, 5)
+
+        ResetBtn.MouseButton1Click:Connect(function()
+            for _, sData in ipairs(subSliderList) do
+                if sData.textBase ~= "Velocidade Máxima" and sData.textBase ~= "Força do Boost" then
+                    sData.setValue(1)
+                end
+            end
+            MULT_GROUND, MULT_DBL, MULT_FLIP, MULT_DODGE = 1, 1, 1, 1
+            applyConstMult()
         end)
-        subSliderObj.Visible = false
-        subSliderObj.LayoutOrder = 2
-    elseif text:find("Velocidade") then
-        subSliderObj = CreateSubSlider(GroupFrame, "Velocidade Máxima", 50, 10000, 4000, function(val)
-            setMaxSpeed(val)
-        end)
-        subSliderObj.Visible = false
-        subSliderObj.LayoutOrder = 2
+        resetBtnObj = ResetBtn
     end
 
     groupLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        if Toggled and subSliderObj then
+        if Toggled then
             GroupFrame.Size = UDim2.new(1, -8, 0, groupLayout.AbsoluteContentSize.Y)
         else
             GroupFrame.Size = UDim2.new(1, -8, 0, 28)
@@ -904,8 +1126,11 @@ local function CreateToggleWithDynamicSub(parent, text, callback)
         TweenService:Create(SwitchTrack, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetTrackColor}):Play()
         TweenService:Create(SwitchKnob, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetKnobColor, Position = targetKnobPos}):Play()
 
-        if subSliderObj then
-            subSliderObj.Visible = Toggled
+        for _, sub in ipairs(subObjects) do
+            sub.Visible = Toggled
+        end
+        if resetBtnObj then
+            resetBtnObj.Visible = Toggled
         end
 
         if Toggled then
@@ -918,25 +1143,95 @@ local function CreateToggleWithDynamicSub(parent, text, callback)
     end)
 end
 
+-- Toggle Simples
+local function CreateToggle(parent, text, callback)
+    local Toggled = false
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(1, -8, 0, 28)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    ToggleBtn.BackgroundTransparency = 0.3
+    ToggleBtn.Font = Enum.Font.GothamMedium
+    ToggleBtn.Text = "   " .. text
+    ToggleBtn.TextColor3 = Color3.fromRGB(215, 215, 235)
+    ToggleBtn.TextSize = 11
+    ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleBtn.Parent = parent
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 5)
+
+    local SwitchTrack = Instance.new("Frame")
+    SwitchTrack.Size = UDim2.new(0, 32, 0, 16)
+    SwitchTrack.Position = UDim2.new(1, -38, 0.5, -8)
+    SwitchTrack.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+    SwitchTrack.BorderSizePixel = 0
+    SwitchTrack.Parent = ToggleBtn
+    Instance.new("UICorner", SwitchTrack).CornerRadius = UDim.new(1, 0)
+
+    local SwitchKnob = Instance.new("Frame")
+    SwitchKnob.Size = UDim2.new(0, 12, 0, 12)
+    SwitchKnob.Position = UDim2.new(0, 2, 0.5, -6)
+    SwitchKnob.BackgroundColor3 = Color3.fromRGB(150, 150, 175)
+    SwitchKnob.BorderSizePixel = 0
+    SwitchKnob.Parent = SwitchTrack
+    Instance.new("UICorner", SwitchKnob).CornerRadius = UDim.new(1, 0)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        Toggled = not Toggled
+        local targetTrackColor = Toggled and Color3.fromRGB(120, 90, 255) or Color3.fromRGB(35, 35, 48)
+        local targetKnobColor = Toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 175)
+        local targetKnobPos = Toggled and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
+
+        TweenService:Create(SwitchTrack, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetTrackColor}):Play()
+        TweenService:Create(SwitchKnob, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetKnobColor, Position = targetKnobPos}):Play()
+
+        if callback then callback(Toggled) end
+    end)
+end
+
 -- Montagem das Seções na Aba Carro
 local Sec1 = CreateSection(Tab1, "Hacks Principais")
-CreateToggleWithDynamicSub(Sec1, "Boost Infinito", function(state)
+
+CreateToggle(Sec1, "Boost Infinito", function(state)
     boostInfiniteEnabled = state
 end)
-CreateToggleWithDynamicSub(Sec1, "Ativar Força do Boost", function(state)
+
+CreateToggle(Sec1, "Pulos Infinitos", function(state)
+    infiniteJumpsOn = state
+    if state and carCount == 0 then task.defer(rescanCars) end
+end)
+
+local Sec2 = CreateSection(Tab1, "Modificadores")
+
+CreateToggleWithMultiSubSliders(Sec2, "Ativar Força do Boost", {
+    {label = "Força do Boost", min = 1, max = 10, default = 1, callback = function(val) setBoostForceMultiplier(val) end}
+}, function(state)
     boostForceEnabled = state
     if not state then
         compactAndApplyBoostForce()
     else
-        setBoostForce(CONFIG_FORCA_BOOST)
+        setBoostForceMultiplier(MULT_BOOST_FORCE)
     end
 end)
-CreateToggleWithDynamicSub(Sec1, "Modificar Velocidade Máxima", function(state)
+
+CreateToggleWithMultiSubSliders(Sec2, "Modificar Velocidade Máxima", {
+    {label = "Velocidade Máxima", min = 1, max = 10, default = 1, callback = function(val) setSpeedMultiplier(val) end}
+}, function(state)
     speedModEnabled = state
     if not state then
         compactAndApplySpeed()
     else
-        setMaxSpeed(CONFIG_VELOCIDADE_MAXIMA)
+        setSpeedMultiplier(MULT_SPEED)
+    end
+end)
+
+CreateToggleWithMultiSubSliders(Sec2, "Modificar Força de Pulo", {
+    {label = "Pulo do Chão", min = 0.5, max = 10, default = 1, callback = function(val) MULT_GROUND = val applyConstMult() end},
+    {label = "Double Jump", min = 0.5, max = 10, default = 1, callback = function(val) MULT_DBL = val end},
+    {label = "Flip (Frente/Trás)", min = 0.5, max = 10, default = 1, callback = function(val) MULT_FLIP = val applyConstMult() end},
+    {label = "Esquiva (Lados)", min = 0.5, max = 10, default = 1, callback = function(val) MULT_DODGE = val applyConstMult() end}
+}, function(state)
+    jumpModEnabled = state
+    if not state then
+        applyConstMult()
     end
 end)
 
@@ -1014,5 +1309,4 @@ CreateSlider(Sec3, "Sensibilidade do Controlo", 1, 10, 5, function(val) print("V
 local Sec4 = CreateSection(Tab3, "Informações")
 CreateButton(Sec4, "Verificar Status do Script", function() print("Tudo OK e otimizado!") end)
 
-print("Astra UI - Turbo Soccer Pro Ultimate com Sub-Sliders Perfeitamente Alinhados!")
-
+print("Astra UI - Turbo Soccer Pro Ultimate Atualizado Corretamente!")
