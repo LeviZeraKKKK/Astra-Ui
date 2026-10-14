@@ -81,12 +81,13 @@ end)
 -- LÓGICA DE FORÇA DO BOOST (ZERO LAG)
 --------------------------------------------------------------------------------
 local boostForceEnabled = false
-local CONFIG_FORCA_BOOST = 4000
+local MULT_BOOST_FORCE = 1
+local BASE_BOOST_FORCE = 4000
 local cacheBoostForce, cacheBoostForceCount = {}, 0
 local lastRescanBoostForce = 0
 
 local function compactAndApplyBoostForce()
-    local f = boostForceEnabled and CONFIG_FORCA_BOOST or 1000
+    local f = boostForceEnabled and (BASE_BOOST_FORCE * MULT_BOOST_FORCE) or 1000
     local n = 0
     for i = 1, cacheBoostForceCount do
         local obj = cacheBoostForce[i]
@@ -102,7 +103,7 @@ local function compactAndApplyBoostForce()
 end
 
 local function rescanBoostForce()
-    local f = boostForceEnabled and CONFIG_FORCA_BOOST or 1000
+    local f = boostForceEnabled and (BASE_BOOST_FORCE * MULT_BOOST_FORCE) or 1000
     local n = 0
     for _, obj in pairs(getgc(true)) do
         if type(obj) == "table" and rawget(obj, "BOOST_ACCEL_GROUND") then
@@ -116,8 +117,8 @@ local function rescanBoostForce()
     lastRescanBoostForce = tick()
 end
 
-local function setBoostForce(novaForca)
-    CONFIG_FORCA_BOOST = novaForca
+local function setBoostForceMultiplier(mult)
+    MULT_BOOST_FORCE = mult
     if boostForceEnabled then
         if cacheBoostForceCount > 0 then
             compactAndApplyBoostForce()
@@ -142,12 +143,13 @@ end)
 -- LÓGICA DE VELOCIDADE MÁXIMA (ZERO LAG)
 --------------------------------------------------------------------------------
 local speedModEnabled = false
-local CONFIG_VELOCIDADE_MAXIMA = 4000
+local MULT_SPEED = 1
+local BASE_MAX_SPEED = 2300
 local cacheSpeed, cacheSpeedCount = {}, 0
 local lastRescanSpeed = 0
 
 local function compactAndApplySpeed()
-    local v = speedModEnabled and CONFIG_VELOCIDADE_MAXIMA or 2300
+    local v = speedModEnabled and (BASE_MAX_SPEED * MULT_SPEED) or 2300
     local ss = math.min(v * 0.7, 2500)
     local n = 0
     for i = 1, cacheSpeedCount do
@@ -164,7 +166,7 @@ local function compactAndApplySpeed()
 end
 
 local function rescanSpeed()
-    local v = speedModEnabled and CONFIG_VELOCIDADE_MAXIMA or 2300
+    local v = speedModEnabled and (BASE_MAX_SPEED * MULT_SPEED) or 2300
     local ss = math.min(v * 0.7, 2500)
     local n = 0
     for _, obj in pairs(getgc(true)) do
@@ -179,8 +181,8 @@ local function rescanSpeed()
     lastRescanSpeed = tick()
 end
 
-local function setMaxSpeed(novaVelocidade)
-    CONFIG_VELOCIDADE_MAXIMA = novaVelocidade
+local function setSpeedMultiplier(mult)
+    MULT_SPEED = mult
     if speedModEnabled then
         if cacheSpeedCount > 0 then
             compactAndApplySpeed()
@@ -912,7 +914,7 @@ local function CreateButton(parent, text, callback)
     end)
 end
 
--- Sub-slider com marcador padrão (1.00x)
+-- Sub-slider padrão com linha branca em 1.00x
 local subSliderList = {}
 local function CreateSubSlider(parent, text, min, max, default, callback)
     local SliderVal = default or min
@@ -942,7 +944,6 @@ local function CreateSubSlider(parent, text, min, max, default, callback)
     SliderBar.Parent = SliderFrame
     Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(1, 0)
 
-    -- Linha branca indicativa do valor 1.00x padrão
     local defaultMarker = Instance.new("Frame")
     local defaultPos = math.clamp((1 - min) / (max - min), 0, 1)
     defaultMarker.Size = UDim2.new(0, 2, 0, 9)
@@ -1081,6 +1082,33 @@ local function CreateToggleWithMultiSubSliders(parent, text, subSlidersConfig, c
         table.insert(subObjects, sub)
     end
 
+    local resetBtnObj = nil
+    if text:find("Força de Pulo") then
+        local ResetBtn = Instance.new("TextButton")
+        ResetBtn.Size = UDim2.new(1, -16, 0, 26)
+        ResetBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+        ResetBtn.BackgroundTransparency = 0.3
+        ResetBtn.Font = Enum.Font.GothamMedium
+        ResetBtn.Text = "Resetar Valores (1.00x)"
+        ResetBtn.TextColor3 = Color3.fromRGB(215, 215, 235)
+        ResetBtn.TextSize = 10
+        ResetBtn.Visible = false
+        ResetBtn.LayoutOrder = #subSlidersConfig + 2
+        ResetBtn.Parent = GroupFrame
+        Instance.new("UICorner", ResetBtn).CornerRadius = UDim.new(0, 5)
+
+        ResetBtn.MouseButton1Click:Connect(function()
+            for _, sData in ipairs(subSliderList) do
+                if sData.textBase ~= "Velocidade Máxima" and sData.textBase ~= "Força do Boost" then
+                    sData.setValue(1)
+                end
+            end
+            MULT_GROUND, MULT_DBL, MULT_FLIP, MULT_DODGE = 1, 1, 1, 1
+            applyConstMult()
+        end)
+        resetBtnObj = ResetBtn
+    end
+
     groupLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         if Toggled then
             GroupFrame.Size = UDim2.new(1, -8, 0, groupLayout.AbsoluteContentSize.Y)
@@ -1100,6 +1128,9 @@ local function CreateToggleWithMultiSubSliders(parent, text, subSlidersConfig, c
 
         for _, sub in ipairs(subObjects) do
             sub.Visible = Toggled
+        end
+        if resetBtnObj then
+            resetBtnObj.Visible = Toggled
         end
 
         if Toggled then
@@ -1159,24 +1190,40 @@ end
 -- Montagem das Seções na Aba Carro
 local Sec1 = CreateSection(Tab1, "Hacks Principais")
 
-CreateToggleWithMultiSubSliders(Sec1, "Boost Infinito", {
-    {label = "Força do Boost", min = 50, max = 10000, default = 4000, callback = function(val) setBoostForce(val) end}
-}, function(state)
+CreateToggle(Sec1, "Boost Infinito", function(state)
     boostInfiniteEnabled = state
 end)
 
-CreateToggleWithMultiSubSliders(Sec1, "Modificar Velocidade Máxima", {
-    {label = "Velocidade Máxima", min = 50, max = 10000, default = 4000, callback = function(val) setMaxSpeed(val) end}
+CreateToggle(Sec1, "Pulos Infinitos", function(state)
+    infiniteJumpsOn = state
+    if state and carCount == 0 then task.defer(rescanCars) end
+end)
+
+local Sec2 = CreateSection(Tab1, "Modificadores")
+
+CreateToggleWithMultiSubSliders(Sec2, "Ativar Força do Boost", {
+    {label = "Força do Boost", min = 1, max = 10, default = 1, callback = function(val) setBoostForceMultiplier(val) end}
+}, function(state)
+    boostForceEnabled = state
+    if not state then
+        compactAndApplyBoostForce()
+    else
+        setBoostForceMultiplier(MULT_BOOST_FORCE)
+    end
+end)
+
+CreateToggleWithMultiSubSliders(Sec2, "Modificar Velocidade Máxima", {
+    {label = "Velocidade Máxima", min = 1, max = 10, default = 1, callback = function(val) setSpeedMultiplier(val) end}
 }, function(state)
     speedModEnabled = state
     if not state then
         compactAndApplySpeed()
     else
-        setMaxSpeed(CONFIG_VELOCIDADE_MAXIMA)
+        setSpeedMultiplier(MULT_SPEED)
     end
 end)
 
-CreateToggleWithMultiSubSliders(Sec1, "Modificar Força de Pulo", {
+CreateToggleWithMultiSubSliders(Sec2, "Modificar Força de Pulo", {
     {label = "Pulo do Chão", min = 0.5, max = 10, default = 1, callback = function(val) MULT_GROUND = val applyConstMult() end},
     {label = "Double Jump", min = 0.5, max = 10, default = 1, callback = function(val) MULT_DBL = val end},
     {label = "Flip (Frente/Trás)", min = 0.5, max = 10, default = 1, callback = function(val) MULT_FLIP = val applyConstMult() end},
@@ -1186,20 +1233,6 @@ CreateToggleWithMultiSubSliders(Sec1, "Modificar Força de Pulo", {
     if not state then
         applyConstMult()
     end
-end)
-
-CreateToggle(Sec1, "Pulos Infinitos", function(state)
-    infiniteJumpsOn = state
-    if state and carCount == 0 then task.defer(rescanCars) end
-end)
-
--- Botão de Reset dos Pulos
-CreateButton(Sec1, "Resetar Valores de Pulos (1.00x)", function()
-    for _, sData in ipairs(subSliderList) do
-        sData.setValue(1)
-    end
-    MULT_GROUND, MULT_DBL, MULT_FLIP, MULT_DODGE = 1, 1, 1, 1
-    applyConstMult()
 end)
 
 local Sec3 = CreateSection(Tab2, "Otimização")
@@ -1276,4 +1309,4 @@ CreateSlider(Sec3, "Sensibilidade do Controlo", 1, 10, 5, function(val) print("V
 local Sec4 = CreateSection(Tab3, "Informações")
 CreateButton(Sec4, "Verificar Status do Script", function() print("Tudo OK e otimizado!") end)
 
-print("Astra UI - Turbo Soccer Pro Ultimate com Pulos Ajustados Carregado com Sucesso!")
+print("Astra UI - Turbo Soccer Pro Ultimate Atualizado Corretamente!")
